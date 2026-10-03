@@ -4,7 +4,7 @@ app/api.py — роутер с эндпоинтом POST /triage.
 Здесь сосредоточена логика приёма обращения:
 1) FastAPI валидирует вход моделью TriageRequest (ошибка -> 422);
 2) (заглушка) проверяется лимит запросов;
-3) (заглушка) LLM определяет категорию и готовит черновик ответа;
+3) LLM определяет категорию и готовит черновик ответа (этап 3);
 4) (заглушка) обращение сохраняется в БД;
 5) возвращается TriageResponse.
 """
@@ -13,7 +13,7 @@ from fastapi import APIRouter  # роутер для подключения к �
 
 from app import config  # MAX_TEXT_LENGTH — для лога лимитов
 from app.database import save_request  # заглушка БД
-from app.llm_service import classify_request  # заглушка LLM
+from app.llm_service import FALLBACK, triage_text  # LLM-сервис и его fallback
 from app.logger import setup_logger  # общий логгер приложения
 from app.models import TriageRequest, TriageResponse  # контракт API
 from app.rate_limiter import is_allowed  # заглушка лимитирования
@@ -50,12 +50,23 @@ def triage(request: TriageRequest) -> TriageResponse:
         logger.warning("RateLimiter отклонил запрос client_id=%s", request.client_id)
         raise NotImplementedError("Лимитирование будет подключено на следующем этапе")
 
-    # Шаг 2. LLM-обработка (заглушка — фиксированный ответ).
-    response = classify_request(
-        text=request.text,
-        channel=request.channel,
-        client_id=request.client_id,
-    )
+    # Шаг 2. LLM-обработка: классификация + черновик ответа.
+    # triage_text сам по себе не бросает исключений (внутри него — fallback),
+    # но try/except оставляем как второй слой защиты: сюда могут прийти
+    # нештатные ситуации вроде ошибки распаковки dict в модель ответа.
+    try:
+        result = triage_text(text=request.text, channel=request.channel)
+        response = TriageResponse(**result)
+    except Exception as exc:  # noqa: BLE001 — наружу не пускаем 500 из-за LLM
+        logger.error(
+            "LLM вернула ошибку для client_id=%s: %s: %s — отдаю fallback",
+            request.client_id,
+            type(exc).__name__,
+            exc,
+        )
+        # Fallback из llm_service: category=other, confidence=low,
+        # escalate=True, draft_reply="Обращение передано оператору."
+        response = TriageResponse(**FALLBACK)
 
     # Шаг 3. Сохранение обращения (заглушка БД — только лог).
     save_request(
