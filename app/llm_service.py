@@ -205,17 +205,17 @@ def _create_chat(client: OpenAI, messages: list) -> str:
     return response.choices[0].message.content or ""
 
 
-def triage_text(text: str, channel: str) -> dict:
+def triage_text_with_error(text: str, channel: str) -> tuple[dict, str | None]:
     """
-    Классифицировать обращение через LLM и подготовить черновик ответа.
+    Тот же triage_text, но вместе с результатом отдаёт причину ошибки.
 
-    Аргументы:
-        text    — текст обращения клиента;
-        channel — канал поступления (email/form/chat), попадает в user prompt.
+    Возвращает кортеж (result, error):
+      - result — dict с ключами TriageResponse (при проблеме это FALLBACK);
+      - error  — текст причины либо None, если LLM отработала штатно.
 
-    Возвращает dict: {"category", "draft_reply", "confidence", "escalate"}.
-    Исключений не бросает — при любой ошибке возвращает fallback с
-    escalate=True (обращение увидит оператор).
+    Нужен для этапа 4: колонка error в таблице tickets должна хранить текст
+    ошибки, а не только факт, что сработал fallback. Раньше причина жила
+    только в логе.
     """
     # Логируем запрос: канал и длину текста. Сам текст в лог не пишем —
     # это персональные данные клиента.
@@ -234,17 +234,40 @@ def triage_text(text: str, channel: str) -> dict:
         raw = _create_chat(client, messages)
         # Ответ модели логируем — он нужен для разбора качества триажа.
         logger.info("Ответ LLM: %s", raw[:MAX_RAW_IN_LOG])
-        return _validate(_extract_json(raw))
+        # Штатный путь: причина ошибки отсутствует.
+        return _validate(_extract_json(raw)), None
 
     # Сетевые сбои и таймауты: модель физически недоступна.
     except (APIConnectionError, APITimeoutError) as exc:
-        return _fallback(f"LLM недоступна: {type(exc).__name__}: {exc}")
+        reason = f"LLM недоступна: {type(exc).__name__}: {exc}"
+        return _fallback(reason), reason
 
     # Ответ провайдера с ошибочным статусом (401 ключ, 429 лимит, 5xx и т.п.).
     except APIStatusError as exc:
-        return _fallback(f"ошибка провайдера {exc.status_code}: {str(exc)[:MAX_RAW_IN_LOG]}")
+        reason = f"ошибка провайдера {exc.status_code}: {str(exc)[:MAX_RAW_IN_LOG]}"
+        return _fallback(reason), reason
 
     # Всё остальное: не-JSON, неверные поля, пустой ответ, неожиданные сбои.
     # Наружу ничего не выпускаем — контракт сервиса «всегда отвечаем 200 + fallback».
     except Exception as exc:  # noqa: BLE001 — осознанно: наружу идёт fallback
-        return _fallback(f"ошибка разбора ответа: {type(exc).__name__}: {exc}")
+        reason = f"ошибка разбора ответа: {type(exc).__name__}: {exc}"
+        return _fallback(reason), reason
+
+
+def triage_text(text: str, channel: str) -> dict:
+    """
+    Классифицировать обращение через LLM и подготовить черновик ответа.
+
+    Аргументы:
+        text    — текст обращения клиента;
+        channel — канал поступления (email/form/chat), попадает в user prompt.
+
+    Возвращает dict: {"category", "draft_reply", "confidence", "escalate"}.
+    Исключений не бросает — при любой ошибке возвращает fallback с
+    escalate=True (обращение увидит оператор).
+
+    Сигнатура и поведение этапа 3 сохранены без изменений; если нужна ещё и
+    причина ошибки (для записи в БД) — используйте triage_text_with_error.
+    """
+    result, _ = triage_text_with_error(text, channel)
+    return result

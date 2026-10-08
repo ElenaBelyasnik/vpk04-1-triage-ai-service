@@ -124,3 +124,64 @@ Content-Type: application/json
   "channel": "email",
   "client_id": "client-106"
 }
+
+### ==========================================================================
+### Этап 4: сохранение обращений в SQLite (таблица tickets в tickets.db).
+### Как проверять: после каждого запроса в логе (консоль и logs/app.log)
+### появляется строка «Обращение сохранено в БД: id=N, ...». Эту же строку
+### можно посмотреть в базе (команды — в README, раздел «База данных»):
+###   python -c "import sqlite3; c = sqlite3.connect('tickets.db'); c.row_factory = sqlite3.Row; [print(dict(r)) for r in c.execute('SELECT * FROM tickets ORDER BY id DESC LIMIT 5')]"
+### ==========================================================================
+
+### 13. Валидный запрос -> 200; в БД новая строка:
+###     category/draft_reply заполнены ответом модели, escalate 0 или 1,
+###     error = NULL (LLM отработала штатно)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Прошу проверить начисления за сентябрь: сумма в счёте выше обычного.",
+  "channel": "email",
+  "client_id": "client-201"
+}
+
+### 14. Ещё один валидный запрос -> 200; в БД строка с id на 1 больше,
+###     чем у № 13 (AUTOINCREMENT), created_at подставляет SQLite
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Не дозвониться до техподдержки, занятие линии бесконечно. Как связаться?",
+  "channel": "chat",
+  "client_id": "client-202"
+}
+
+### 15. Неразборчивый текст -> 200 (fallback или low-confidence);
+###     в БД: escalate = 1; error = NULL, если модель ответила (confidence=low),
+###     либо error заполнен, если сработал fallback (проверить в БД)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "щщщ йцц йцц ??",
+  "channel": "form",
+  "client_id": "client-203"
+}
+
+### 16. Проверка записи ошибки LLM: временно испортить PROXY_API_KEY
+###     в .env (НЕ КОММИТИТЬ), перезапустить сервис, отправить запрос.
+###     Ожидается 200 + fallback (escalate=true), в БД: error содержит
+###     причину сбоя (например «ошибка провайдера 401: ...»).
+###     После проверки вернуть ключ в .env.
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Хочу перенести номер к вам, подскажите условия.",
+  "channel": "email",
+  "client_id": "client-204"
+}
+
+### 17. Чтение записи по id (проверка get_ticket в Python-консоли, не HTTP):
+###   python -c "from app.database import get_ticket; print(get_ticket(1))"
+### Ожидается dict с полями строки tickets либо None, если такого id нет.
