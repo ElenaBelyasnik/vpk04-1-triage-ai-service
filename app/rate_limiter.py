@@ -5,8 +5,8 @@ app/rate_limiter.py — лимитирование запросов на client_
 внешние хранилища (БД, Redis, файлы) НЕ используются.
 
 Идея: для каждого client_id хранится список временных меток его запросов.
-Перед каждой проверкой из списка выбрасываются метки старше 60 секунд,
-после чего:
+Перед каждой проверкой из списка выбрасываются метки старше окна
+(размер окна — RATE_WINDOW_SECONDS из .env), после чего:
   - если оставшихся меток >= RATE_LIMIT_PER_MINUTE — лимит превышен,
     возвращаем False (текущий запрос НЕ регистрируется);
   - иначе добавляем метку текущего запроса и возвращаем True.
@@ -20,14 +20,10 @@ threading.Lock — uvicorn может обрабатывать запросы п
 import threading  # блокировка для потокобезопасного доступа к хранилищу
 import time  # временные метки запросов (time.monotonic)
 
-from app import config  # RATE_LIMIT_PER_MINUTE — лимит из .env
+from app import config  # RATE_LIMIT_PER_MINUTE, RATE_WINDOW_SECONDS — из .env
 from app.logger import setup_logger  # общий логгер приложения
 
 logger = setup_logger("triage.rate_limiter")
-
-# Размер окна наблюдения: считаем запросы за последние 60 секунд
-# (по условию задания — «N запросов в минуту»).
-WINDOW_SECONDS = 60.0
 
 # Хранилище лимитов: client_id -> список меток запросов (по возрастанию).
 # Живёт в памяти процесса: при перезапуске сервиса история обнуляется —
@@ -42,7 +38,8 @@ _lock = threading.Lock()
 
 def check_rate_limit(client_id: str) -> bool:
     """
-    Проверить, разрешён ли запрос клиента (скользящее окно 60 секунд).
+    Проверить, разрешён ли запрос клиента (скользящее окно
+    RATE_WINDOW_SECONDS секунд).
 
     Возвращает True, если лимит НЕ превышен (метка запроса добавлена),
     и False, если превышен (метка НЕ добавляется — отказанный запрос
@@ -52,7 +49,8 @@ def check_rate_limit(client_id: str) -> bool:
     # перевода системного времени, окно не «поедет» при смене даты/часового пояса.
     now = time.monotonic()
     # Граница окна: метки раньше этого момента считаются устаревшими.
-    cutoff = now - WINDOW_SECONDS
+    # Размер окна — из .env (RATE_WINDOW_SECONDS).
+    cutoff = now - config.RATE_WINDOW_SECONDS
 
     with _lock:
         # get(...) — не defaultdict: новый client_id появится в словаре
@@ -83,7 +81,7 @@ def check_rate_limit(client_id: str) -> bool:
                 "RateLimiter: превышен лимит для client_id=%s — "
                 "запросов в окне (%s секунд): %s, лимит: %s/мин",
                 client_id,
-                int(WINDOW_SECONDS),
+                int(config.RATE_WINDOW_SECONDS),
                 len(times),
                 config.RATE_LIMIT_PER_MINUTE,
             )
