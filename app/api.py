@@ -3,13 +3,14 @@ app/api.py — роутер с эндпоинтом POST /triage.
 
 Здесь сосредоточена логика приёма обращения:
 1) FastAPI валидирует вход моделью TriageRequest (ошибка -> 422);
-2) (заглушка) проверяется лимит запросов;
+2) проверяется лимит запросов на client_id (этап 5, превышение -> 429);
 3) LLM определяет категорию и готовит черновик ответа (этап 3);
 4) обращение и результат сохраняются в SQLite (этап 4);
 5) возвращается TriageResponse.
 """
 
 from fastapi import APIRouter  # роутер для подключения к главному приложению
+from fastapi.responses import JSONResponse  # ответ 429 с произвольным JSON-телом
 
 from app import config  # MAX_TEXT_LENGTH — для лога лимитов
 from app.database import save_ticket  # сохранение обращений в SQLite (этап 4)
@@ -19,7 +20,7 @@ from app.llm_service import (  # LLM-сервис, его fallback и верси
 )
 from app.logger import setup_logger  # общий логгер приложения
 from app.models import TriageRequest, TriageResponse  # контракт API
-from app.rate_limiter import is_allowed  # заглушка лимитирования
+from app.rate_limiter import check_rate_limit  # лимитирование (этап 5)
 
 # Роутер вынесен в отдельный модуль — main.py только подключает его.
 router = APIRouter()
@@ -33,7 +34,7 @@ MAX_ERROR_LENGTH = 500
 
 
 @router.post("/triage", response_model=TriageResponse)
-def triage(request: TriageRequest) -> TriageResponse:
+def triage(request: TriageRequest) -> TriageResponse | JSONResponse:
     """
     Обработка входящего обращения (триаж).
 
@@ -52,12 +53,19 @@ def triage(request: TriageRequest) -> TriageResponse:
         config.MAX_TEXT_LENGTH,
     )
 
-    # Шаг 1. Лимитирование (заглушка — всегда разрешает).
-    if not is_allowed(request.client_id):
-        # На этом этапе недостижимо, но ветка закладывается заранее:
-        # позже здесь будет исключение 429 Too Many Requests.
-        logger.warning("RateLimiter отклонил запрос client_id=%s", request.client_id)
-        raise NotImplementedError("Лимитирование будет подключено на следующем этапе")
+    # Шаг 1. Лимитирование (этап 5): скользящее окно 60 секунд на client_id.
+    # Если клиент превысил RATE_LIMIT_PER_MINUTE — отказываем с 429.
+    if not check_rate_limit(request.client_id):
+        # Возвращаем JSONResponse напрямую (не HTTPException), чтобы
+        # тело ответа точно соответствовало заданию: {"error": ..., "detail": ...}.
+        logger.warning("RateLimiter: отказано в запросе для client_id=%s", request.client_id)
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": "rate_limit_exceeded",
+                "detail": "Слишком много запросов. Попробуйте через минуту.",
+            },
+        )
 
     # Шаг 2. LLM-обработка: классификация + черновик ответа.
     # llm_error — причина, по которой результат мог стать fallback-ом: она

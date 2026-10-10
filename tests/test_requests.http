@@ -185,3 +185,86 @@ Content-Type: application/json
 ### 17. Чтение записи по id (проверка get_ticket в Python-консоли, не HTTP):
 ###   python -c "from app.database import get_ticket; print(get_ticket(1))"
 ### Ожидается dict с полями строки tickets либо None, если такого id нет.
+
+### ==========================================================================
+### Этап 5: лимитирование запросов (RATE_LIMIT_PER_MINUTE=5, скользящее
+### окно 60 секунд на client_id).
+### Важно: запросы № 18-23 нужно отправить ОДНОЙ серией в течение минуты,
+### и чтобы у client-301 не было запросов в предыдущую минуту (перезапустить
+### сервис или выбрать новый client_id). Итог: № 18-22 -> 200, № 23 -> 429:
+###   {"error":"rate_limit_exceeded","detail":"Слишком много запросов. Попробуйте через минуту."}
+### В логе (консоль и logs/app.log) на 429 — WARNING:
+###   «RateLimiter: превышен лимит для client_id=client-301 — запросов в окне (60 секунд): 5, лимит: 5/мин»
+### Проверка независимости клиентов: сразу после № 23 отправить запрос с
+### другим client_id (например client-302) -> ожидается 200.
+### ==========================================================================
+
+### 18. Запрос 1 из 6 для client-301 (ожидается 200)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Проверка лимитирования, запрос 1",
+  "channel": "chat",
+  "client_id": "client-301"
+}
+
+### 19. Запрос 2 из 6 для client-301 (ожидается 200)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Проверка лимитирования, запрос 2",
+  "channel": "chat",
+  "client_id": "client-301"
+}
+
+### 20. Запрос 3 из 6 для client-301 (ожидается 200)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Проверка лимитирования, запрос 3",
+  "channel": "chat",
+  "client_id": "client-301"
+}
+
+### 21. Запрос 4 из 6 для client-301 (ожидается 200)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Проверка лимитирования, запрос 4",
+  "channel": "chat",
+  "client_id": "client-301"
+}
+
+### 22. Запрос 5 из 6 для client-301 (ожидается 200 — пятый проходит)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Проверка лимитирования, запрос 5",
+  "channel": "chat",
+  "client_id": "client-301"
+}
+
+### 23. Запрос 6 из 6 для client-301 (ожидается 429 — лимит превышен)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Проверка лимитирования, запрос 6",
+  "channel": "chat",
+  "client_id": "client-301"
+}
+
+### 24. Другой клиент сразу после № 23 (ожидается 200 — лимиты независимы)
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "text": "Проверка лимитирования, другой клиент",
+  "channel": "chat",
+  "client_id": "client-302"
+}
