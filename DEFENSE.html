@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Защита проекта — vpk04-1-triage-ai-service</title>
+<style>
+:root {
+  --bg: #f8f9fb;
+  --text: #1a1a2e;
+  --accent: #2563eb;
+  --orange: #f59e0b;
+  --block-blue: #e0e7ff;
+  --block-yellow: #fef3c7;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
+}
+
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.scene {
+  min-height: 100vh;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 90px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.scene-title {
+  font-size: 52px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 36px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .6s ease, transform .6s ease;
+}
+
+.scene-number {
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.scene-text {
+  font-size: 21px;
+  max-width: 860px;
+  white-space: pre-line;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .6s ease .15s, transform .6s ease .15s;
+}
+
+.visible .scene-title,
+.visible .scene-text,
+.visible .extras {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.extras {
+  margin-top: 44px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .6s ease .3s, transform .6s ease .3s;
+}
+
+/* Карточки-цифры (сцена 1) */
+.cards {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  flex: 1;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, .06);
+}
+
+.stat-card .big {
+  font-size: 44px;
+  font-weight: 800;
+  color: var(--orange);
+  display: block;
+}
+
+.stat-card .label {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 6px;
+}
+
+.stat-card .sub {
+  font-size: 15px;
+  color: #6b7280;
+  margin-top: 8px;
+}
+
+/* Иконки-карточки (сцена 2) */
+.icon-cards {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.icon-card {
+  flex: 1;
+  min-width: 200px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 26px 20px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+}
+
+.icon-card .icon { font-size: 40px; }
+.icon-card .caption {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 10px;
+}
+
+/* Схема архитектуры (сцена 3) */
+.arch {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.arch-flow {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 0;
+}
+
+.flow-block {
+  position: relative;
+  background: var(--block-blue);
+  border-radius: 12px;
+  padding: 12px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 76px;
+}
+
+.flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: var(--accent);
+  padding: 0 8px;
+  flex: 0 0 auto;
+}
+
+.arch-support {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.support-block {
+  background: var(--block-yellow);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  flex: 1;
+  min-width: 220px;
+  position: relative;
+}
+
+.support-block::before {
+  content: "↑";
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  color: var(--orange);
+}
+
+.support-block .for-step {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: #92400e;
+  margin-top: 4px;
+}
+
+/* Таблица рисков (сцена 4) */
+.risk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 18px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, .06);
+}
+
+.risk-table th {
+  text-align: left;
+  padding: 14px 18px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.risk-table td {
+  padding: 14px 18px;
+  vertical-align: top;
+}
+
+.risk-table tr:nth-child(even) td { background: #eef2ff; }
+
+.risk-table td:first-child { font-weight: 600; color: var(--accent); }
+
+/* Этапы (сцена 5) */
+.steps {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.step-card {
+  flex: 1;
+  min-width: 220px;
+  border-radius: 16px;
+  padding: 26px 22px;
+  background: #fff;
+  border-top: 6px solid var(--accent);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, .06);
+}
+
+.step-card:nth-child(2) { border-top-color: var(--orange); }
+.step-card:nth-child(3) { border-top-color: #10b981; }
+
+.step-card h3 {
+  font-size: 26px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.step-card p { font-size: 17px; color: #374151; }
+
+/* Чек-лист (сцена 6) */
+.checklist { list-style: none; }
+
+.checklist li {
+  font-size: 22px;
+  padding: 8px 0;
+}
+
+.checklist li::before {
+  content: "✓ ";
+  color: #10b981;
+  font-weight: 800;
+  margin-right: 8px;
+}
+
+.signature {
+  margin-top: 48px;
+  font-size: 16px;
+  color: #6b7280;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 20px;
+}
+
+/* Индикатор прогресса */
+.progress-indicator {
+  position: fixed;
+  left: 24px;
+  top: 24px;
+  right: auto;
+  bottom: auto;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(4px);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .06);
+  font-size: 13px;
+  z-index: 10;
+  text-align: left;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.progress-indicator:hover {
+  opacity: 1;
+}
+
+.progress-label { font-weight: 700; color: var(--accent); }
+
+.progress-bar {
+  margin-top: 8px;
+  width: 140px;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width .3s ease;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .scene { padding: 60px 16px; }
+  .scene-title { font-size: 34px; }
+  .scene-text { font-size: 17px; }
+  .arch-flow { flex-wrap: wrap; }
+  .flow-block { flex: 1 1 40%; min-height: 60px; }
+  .flow-arrow { display: none; }
+  .risk-table { font-size: 15px; }
+}
+
+/* Печать */
+@media print {
+  html { scroll-snap-type: none; }
+  .scene { page-break-after: always; min-height: auto; padding: 40px 0; }
+   .progress-indicator { display: none; }
+  .scene-title, .scene-text, .extras { opacity: 1 !important; transform: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- СЕКЦИЯ 1 -->
+<section class="scene" id="scene-1" data-scene="1">
+  <div class="scene-number">Сцена 1. Проблема</div>
+  <h1 class="scene-title">Проблема: менеджеры тонут в рутине</h1>
+  <p class="scene-text">Здравствуйте. Меня зовут Елена, и я расскажу о проекте — сервисе для автоматической обработки клиентских обращений.
+Представьте компанию, которая каждый день получает десятки сообщений: через почту, форму на сайте, чат. Это могут быть вопросы по оплате, жалобы, просьбы о помощи. Менеджеры тратят много времени на то, чтобы просто разобрать эти сообщения по категориям — какое к оплате, какое к поддержке, какое жалоба. И только потом пишут ответ.
+Из-за этого страдает скорость ответа и качество. Клиенты ждут, нервничают, уходят к конкурентам. Наш сервис решает именно эту проблему — он берёт на себя первичную сортировку и подготовку черновика ответа, а менеджеры занимаются сложными случаями.</p>
+  <div class="extras">
+    <div class="cards">
+      <div class="stat-card">
+        <span class="big">3</span>
+        <div class="label">канала обращений</div>
+        <div class="sub">email, форма, чат</div>
+      </div>
+      <div class="stat-card">
+        <span class="big">4</span>
+        <div class="label">категории</div>
+        <div class="sub">оплата, поддержка, жалоба, другое</div>
+      </div>
+      <div class="stat-card">
+        <span class="big">5</span>
+        <div class="label">шагов обработки</div>
+        <div class="sub">от запроса до ответа</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- СЕКЦИЯ 2 -->
+<section class="scene" id="scene-2" data-scene="2">
+  <div class="scene-number">Сцена 2. Контекст и ограничения</div>
+  <h1 class="scene-title">Три ограничения, из которых мы исходили</h1>
+  <p class="scene-text">При разработке мы исходили из трёх простых ограничений.
+Первое — бюджет. У нас нет платного сервера, поэтому сервис запускается локально, а работа показана в демо-видео. Это так называемый запасной путь сдачи.
+Второе — безопасность. Ключ доступа к языковой модели хранится в отдельном файле настроек, который не попадает в код и не публикуется. Текст обращения не записывается в логи — только его длина и канал. Это защита личных данных клиентов.
+Третье — простота. Мы сделали минимальную рабочую версию: одна точка входа, четыре категории обращений, лёгкая база данных. Всё, что не нужно для первой версии — умный поиск по документам, админку, мониторинг — отложили на потом, чтобы не усложнять.</p>
+  <div class="extras">
+    <div class="icon-cards">
+      <div class="icon-card">
+        <div class="icon">💰</div>
+        <div class="caption">Бюджет</div>
+      </div>
+      <div class="icon-card">
+        <div class="icon">🔒</div>
+        <div class="caption">Безопасность</div>
+      </div>
+      <div class="icon-card">
+        <div class="icon">✨</div>
+        <div class="caption">Простота</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- СЕКЦИЯ 3 -->
+<section class="scene" id="scene-3" data-scene="3">
+  <div class="scene-number">Сцена 3. Решение</div>
+  <h1 class="scene-title">Как устроен сервис: пять шагов</h1>
+  <p class="scene-text">Теперь — как это работает. Сервис принимает обращение по одному адресу. Внутри — пять шагов.
+Шаг первый: проверка входных данных. Если текст пустой, слишком длинный или не указан клиент — сервис сразу вернёт ошибку, не беспокоя модель.
+Шаг второй: проверка лимита. У каждого клиента есть ограничение — не больше пяти запросов в минуту. Если превысил — сервис вежливо попросит подождать. Это защита от спама и лишних расходов.
+Шаг третий: обращение уходит к языковой модели. Модель получает чёткую инструкцию: определи категорию, напиши черновик ответа, оцени свою уверенность и реши, нужен ли человек. Ответ модель возвращает в строгом формате.
+Шаг четвёртый: результат сохраняется в базу данных. Это нужно для аудита — потом можно посмотреть, как модель отработала на каждом обращении.
+Шаг пятый: клиент получает ответ.
+Отдельно скажу про надёжность. Если модель недоступна или ответила неправильно — сервис не падает. Он возвращает безопасный ответ: «Обращение передано оператору», помечает его как требующее внимания человека и записывает причину сбоя в логи и в базу. То есть даже при полном сбое клиент не остаётся без ответа.</p>
+  <div class="extras">
+    <div class="arch">
+      <div class="arch-flow">
+        <div class="flow-block">Клиент:<br>Postman / Swagger</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-block">FastAPI:<br>приём и валидация</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-block">Языковая модель:<br>классификация и черновик</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-block">База данных:<br>запись обращения</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-block">Ответ<br>клиенту</div>
+      </div>
+      <div class="arch-support">
+        <div class="support-block">Ограничитель запросов: 5 в минуту на клиента<span class="for-step">под шагом 2</span></div>
+        <div class="support-block">Прокси к модели: единая точка доступа<span class="for-step">под шагом 3</span></div>
+        <div class="support-block">Файл логов: история обработки<span class="for-step">под шагом 4</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- СЕКЦИЯ 4 -->
+<section class="scene" id="scene-4" data-scene="4">
+  <div class="scene-number">Сцена 4. Риски</div>
+  <h1 class="scene-title">Где может сломаться — и что мы сделали</h1>
+  <p class="scene-text">Давайте честно — где это может сломаться и что мы предусмотрели.
+Пять ключевых рисков и наши решения — в таблице ниже. Главное: при сбое модели клиент всё равно получает безопасный ответ, а причина пишется в логи и в базу.
+Это базовый уровень надёжности, который отличает учебный проект от рабочего сервиса.</p>
+  <div class="extras">
+    <table class="risk-table">
+      <thead>
+        <tr><th>Риск</th><th>Что сделали</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Модель недоступна</td><td>Безопасный ответ оператору, причина в логах</td></tr>
+        <tr><td>Провайдер не принимает настройку</td><td>Один повтор без неё</td></tr>
+        <tr><td>Частые запросы</td><td>Лимит по клиенту, ошибка 429</td></tr>
+        <tr><td>Ошибка записи в базу</td><td>Ответ всё равно уходит, ошибка в лог</td></tr>
+        <tr><td>Утечка ключа</td><td>Ключ только в файле настроек, не в логах</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- СЕКЦИЯ 5 -->
+<section class="scene" id="scene-5" data-scene="5">
+  <div class="scene-number">Сцена 5. План внедрения</div>
+  <h1 class="scene-title">Как запустить за один день</h1>
+  <p class="scene-text">Как это запустить, если завтра нужно показать заказчику.
+Утро: скачать проект, создать виртуальное окружение, установить зависимости, скопировать файл настроек и вписать ключ доступа.
+День: запустить сервис одной командой, открыть страницу документации, отправить тестовые обращения, убедиться, что ответы приходят и записи появляются в базе и логах.
+Вечер: настроить лимиты под реальную нагрузку — сколько запросов в минуту разрешать. Всё. Сервис готов к работе.
+Дальше — по плану развития: умный поиск по документам компании, админка для просмотра обращений, мониторинг и переезд на бесплатный хостинг с публичной ссылкой.</p>
+  <div class="extras">
+    <div class="steps">
+      <div class="step-card">
+        <h3>Утро</h3>
+        <p>Окружение, зависимости, ключ</p>
+      </div>
+      <div class="step-card">
+        <h3>День</h3>
+        <p>Запуск, проверка, тестовые обращения</p>
+      </div>
+      <div class="step-card">
+        <h3>Вечер</h3>
+        <p>Настройка лимитов под нагрузку</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- СЕКЦИЯ 6 -->
+<section class="scene" id="scene-6" data-scene="6">
+  <div class="scene-number">Сцена 6. Итог</div>
+  <h1 class="scene-title">Что получилось</h1>
+  <p class="scene-text">Итог: мы сделали минимальную рабочую версию сервиса, которая классифицирует обращения, готовит черновик ответа, сохраняет историю, ограничивает частоту запросов и не падает при сбоях. Готова к внедрению и развитию. Спасибо за внимание.</p>
+  <div class="extras">
+    <ul class="checklist">
+      <li>Классифицирует обращения</li>
+      <li>Готовит черновик ответа</li>
+      <li>Сохраняет историю в базе</li>
+      <li>Ограничивает частоту запросов</li>
+      <li>Не падает при сбоях</li>
+    </ul>
+    <div class="signature">Белясник Елена · vpk04-1-triage-ai-service · октябрь 2026</div>
+  </div>
+</section>
+
+<div class="progress-indicator">
+  <div class="progress-label" id="progress-label">Сцена 1 из 6</div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+</div>
+
+<script>
+(function () {
+  var scenes = Array.prototype.slice.call(document.querySelectorAll('.scene'));
+  var total = scenes.length;
+  var current = 1;
+  var label = document.getElementById('progress-label');
+  var fill = document.getElementById('progress-fill');
+
+  // Появление блоков + индикатор прогресса
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        var num = parseInt(entry.target.getAttribute('data-scene'), 10);
+        current = num;
+        label.textContent = 'Сцена ' + num + ' из ' + total;
+        fill.style.width = (num / total * 100) + '%';
+      }
+    });
+  }, { threshold: 0.55 });
+
+  scenes.forEach(function (s) { observer.observe(s); });
+
+  function goTo(index) {
+    if (index < 0 || index >= total) return;
+    scenes[index].scrollIntoView({ behavior: 'smooth' });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    var idx = scenes.findIndex(function (s) {
+      var r = s.getBoundingClientRect();
+      return r.top >= -r.height * 0.5 && r.bottom > window.innerHeight * 0.5;
+    });
+    if (idx === -1) idx = current - 1;
+
+    switch (e.key) {
+      case ' ':
+      case 'ArrowDown':
+      case 'PageDown':
+        e.preventDefault();
+        goTo(Math.min(idx + 1, total - 1));
+        break;
+      case 'ArrowUp':
+      case 'PageUp':
+        e.preventDefault();
+        goTo(Math.max(idx - 1, 0));
+        break;
+      case 'Home':
+        e.preventDefault();
+        goTo(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        goTo(total - 1);
+        break;
+    }
+  });
+})();
+</script>
+</body>
+</html>
