@@ -159,8 +159,10 @@ python -c "from app.database import get_ticket; print(get_ticket(1))"
 │   ├── models.py       # Pydantic-контракт: TriageRequest / TriageResponse
 │   └── rate_limiter.py # лимитирование: скользящее окно RATE_WINDOW_SECONDS
 │                       # секунд на client_id (этап 5)
-└── tests/
-    └── test_requests.http  # HTTP-запросы для ручных проверок (этапы 2-5)
+├── tests/
+│   └── test_requests.http  # HTTP-запросы для ручных проверок (этапы 2-5)
+└── Отчёт по откликам.xlsx  # журнал откликов на заказы: Площадка, Дата,
+                            # Текст отклика, Скриншоты (не относится к коду сервиса)
 ```
 
 ## Запуск
