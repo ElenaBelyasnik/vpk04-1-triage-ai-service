@@ -10,3 +10,4 @@ prompts/
 source_files/
 .DS_Store
 *.log
+.~lock.*#
